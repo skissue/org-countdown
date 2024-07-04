@@ -35,6 +35,9 @@
 (defvar-local org-countdown--overlays nil
   "List of `org-countdown' overlays in current buffer.")
 
+(defvar-local org-countdown--timer nil
+  "Timer that updates the current buffer's `org-countdown' overlays.")
+
 (defun org-countdown--follow (_path _prefix)
   "Handle following a `countdown:' link."
   (org-countdown--style-link (org-element-context)))
@@ -53,14 +56,25 @@
               (begin (org-element-begin link))
               (end (org-element-end link))
               (ov (make-overlay begin end))
+              (time (ts-parse target))
               (time-left (ts-human-format-duration
-                          (ts-diff (ts-parse target)
+                          (ts-diff time
                                    (ts-now))
                           :abbr))
               (text (format "⏳ %s" time-left)))
     (overlay-put ov 'display text)
     (overlay-put ov 'face '(org-date default))
-    (push ov org-countdown--overlays)))
+    (push (cons time ov) org-countdown--overlays)))
+
+(defun org-countdown--update-overlays ()
+  "Update overlays in the current buffer."
+  (cl-loop for (target . ov) in org-countdown--overlays
+           for time-left = (ts-human-format-duration
+                            (ts-diff target
+                                     (ts-now))
+                            :abbr)
+           do
+           (overlay-put ov 'display (format "⏳ %s" time-left))))
 
 ;;;###autoload
 (defun org-countdown-enable ()
@@ -69,13 +83,18 @@
   (org-countdown--register)
   (org-countdown-clear)
   (org-element-map (org-element-parse-buffer) 'link
-    #'org-countdown--style-link))
+    #'org-countdown--style-link)
+  (setq org-countdown--timer (run-with-timer 1 1 #'org-countdown--update-overlays)))
 
 (defun org-countdown-clear ()
   "Clear all countdown overlays in the buffer."
   (interactive)
-  (mapc #'delete-overlay org-countdown--overlays)
-  (setq org-countdown--overlays nil))
+  (mapc #'delete-overlay
+        (mapcar #'cdr org-countdown--overlays))
+  (when org-countdown--timer
+    (cancel-timer org-countdown--timer))
+  (setq org-countdown--overlays nil
+        org-countdown--timer nil))
 
 (provide 'org-countdown)
 
