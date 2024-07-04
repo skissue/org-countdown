@@ -67,6 +67,21 @@
             (+ (* 365 years) days)
             hours minutes)))
 
+(defun org-countdown-remove-at-point ()
+  "Remove countdown overlay at point."
+  (interactive)
+  (when-let ((ov (cl-find-if (lambda (ov)
+                               (member ov org-countdown--overlays))
+                             (overlays-at (point)))))
+    (delete-overlay ov)
+    (setq org-countdown--overlays (delete ov org-countdown--overlays))))
+
+(defvar org-countdown-overlay-map
+  (let ((map (make-sparse-keymap)))
+    (keymap-set map "RET" #'org-countdown-remove-at-point)
+    map)
+  "Keymap for `org-countdown' overlays.")
+
 (defun org-countdown--style-link (link)
   "If applicable, add an overlay to the link element LINK."
   (when-let* ((type (org-element-property :type link))
@@ -79,12 +94,15 @@
               (text (org-countdown--format-duration timestamp)))
     (overlay-put ov 'display text)
     (overlay-put ov 'face 'org-countdown-overlay)
-    (push (cons timestamp ov) org-countdown--overlays)))
+    (overlay-put ov 'keymap org-countdown-overlay-map)
+    (overlay-put ov 'timestamp timestamp)
+    (push ov org-countdown--overlays)))
 
 (defun org-countdown--update-overlays ()
   "Update overlays in the current buffer."
-  (cl-loop for (target . ov) in org-countdown--overlays
-           for text = (org-countdown--format-duration target)
+  (cl-loop for ov in org-countdown--overlays
+           for timestamp = (overlay-get ov 'timestamp)
+           for text = (org-countdown--format-duration timestamp)
            do
            (overlay-put ov 'display text)))
 
@@ -102,8 +120,7 @@
 (defun org-countdown-clear ()
   "Clear all countdown overlays in the buffer."
   (interactive)
-  (mapc #'delete-overlay
-        (mapcar #'cdr org-countdown--overlays))
+  (mapc #'delete-overlay org-countdown--overlays)
   (when org-countdown--timer
     (cancel-timer org-countdown--timer))
   (setq org-countdown--overlays nil
