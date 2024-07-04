@@ -49,6 +49,16 @@
    "countdown"
    :follow #'org-countdown--follow))
 
+(defun org-countdown--format-duration (timestamp)
+  "Format duration until TIMESTAMP for display as a string."
+  (cl-destructuring-bind
+      (&key years days hours minutes &allow-other-keys)
+      (ts-human-duration (ts-diff timestamp
+                                  (ts-now)))
+    (format "⏳ %dd %dh %dm"
+            (+ (* 365 years) days)
+            hours minutes)))
+
 (defun org-countdown--style-link (link)
   "If applicable, add an overlay to the link element LINK."
   (when-let* ((type (org-element-property :type link))
@@ -57,25 +67,18 @@
               (begin (org-element-begin link))
               (end (org-element-end link))
               (ov (make-overlay begin end))
-              (time (ts-parse target))
-              (time-left (ts-human-format-duration
-                          (ts-diff time
-                                   (ts-now))
-                          :abbr))
-              (text (format "⏳ %s" time-left)))
+              (timestamp (ts-parse target))
+              (text (org-countdown--format-duration timestamp)))
     (overlay-put ov 'display text)
     (overlay-put ov 'face '(org-date default))
-    (push (cons time ov) org-countdown--overlays)))
+    (push (cons timestamp ov) org-countdown--overlays)))
 
 (defun org-countdown--update-overlays ()
   "Update overlays in the current buffer."
   (cl-loop for (target . ov) in org-countdown--overlays
-           for time-left = (ts-human-format-duration
-                            (ts-diff target
-                                     (ts-now))
-                            :abbr)
+           for text = (org-countdown--format-duration target)
            do
-           (overlay-put ov 'display (format "⏳ %s" time-left))))
+           (overlay-put ov 'display text)))
 
 ;;;###autoload
 (defun org-countdown-enable ()
@@ -85,7 +88,8 @@
   (org-countdown-clear)
   (org-element-map (org-element-parse-buffer) 'link
     #'org-countdown--style-link)
-  (setq org-countdown--timer (run-with-timer 1 1 #'org-countdown--update-overlays)))
+  (setq org-countdown--timer
+        (run-with-timer 60 60 #'org-countdown--update-overlays)))
 
 (defun org-countdown-clear ()
   "Clear all countdown overlays in the buffer."
