@@ -49,8 +49,8 @@
   (when-let* ((type (org-element-property :type link))
               ((string= type "countdown"))
               (target (org-element-property :path link))
-              (begin (org-element-property :begin link))
-              (end (org-element-property :end link))
+              (begin (org-element-begin link))
+              (end (org-element-end link))
               (ov (make-overlay begin end))
               (time-left (ts-human-format-duration
                           (ts-diff (ts-parse target)
