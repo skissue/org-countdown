@@ -41,6 +41,12 @@
                                           :height 0.9))
   "Face for `org-countdown' countdown text.")
 
+(defcustom org-countdown-format-duration-function #'org-countdown--format-duration
+  "Function to use to format the duration left until a timestamp.
+Takes a single argument, the target timestamp, as a `ts' timestamp
+struct. Should return a string to display."
+  :type 'function)
+
 (defvar-local org-countdown--overlays nil
   "List of `org-countdown' overlays in current buffer.")
 
@@ -91,7 +97,7 @@
               (end (org-element-end link))
               (ov (make-overlay begin end))
               (timestamp (ts-parse target))
-              (text (org-countdown--format-duration timestamp)))
+              (text (funcall org-countdown-format-duration-function timestamp)))
     (overlay-put ov 'display text)
     (overlay-put ov 'face 'org-countdown-overlay)
     (overlay-put ov 'keymap org-countdown-overlay-map)
