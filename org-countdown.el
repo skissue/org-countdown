@@ -32,7 +32,8 @@
 (require 'org-element)
 (require 'ts)
 
-(defvar-local org-countdown--overlays nil)
+(defvar-local org-countdown--overlays nil
+  "List of `org-countdown' overlays in current buffer.")
 
 (defun org-countdown--follow (_path _prefix)
   "Handle following a `countdown:' link."
