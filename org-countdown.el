@@ -61,6 +61,7 @@
     (overlay-put ov 'face '(org-date default))
     (push ov org-countdown--overlays)))
 
+;;;###autoload
 (defun org-countdown-enable ()
   "Style all `countdown:' links in the buffer."
   (interactive)
