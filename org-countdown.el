@@ -2,7 +2,7 @@
 
 ;; Author: Ad <me@skissue.xyz>
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.1") (ts "0.3"))
+;; Package-Requires: ((emacs "26.1") (ts "0.3"))
 ;; Homepage: https://github.com/skissue/org-countdown
 ;; Keywords: calendar, text
 
@@ -29,7 +29,45 @@
 
 ;;; Code:
 
-(require 'org)
+(require 'org-element)
+(require 'ts)
+
+(defvar-local org-countdown--overlays nil)
+
+(defun org-countdown--register ()
+  "Register `countdown:' link type with Org Mode."
+  (org-link-set-parameters "countdown"))
+
+(defun org-countdown--style-link (link)
+  "If applicable, add an overlay to the link element LINK."
+  (when-let* ((type (org-element-property :type link))
+              ((string= type "countdown"))
+              (target (org-element-property :path link))
+              (begin (org-element-property :begin link))
+              (end (org-element-property :end link))
+              (ov (make-overlay begin end))
+              (time-left (ts-human-format-duration
+                          (ts-diff (ts-parse target)
+                                   (ts-now))
+                          :abbr))
+              (text (format "⏳ %s" time-left)))
+    (overlay-put ov 'display text)
+    (overlay-put ov 'face '(org-date default))
+    (push ov org-countdown--overlays)))
+
+(defun org-countdown-enable ()
+  "Style all `countdown:' links in the buffer."
+  (interactive)
+  (org-countdown--register)
+  (org-countdown-clear)
+  (org-element-map (org-element-parse-buffer) 'link
+    #'org-countdown--style-link))
+
+(defun org-countdown-clear ()
+  "Clear all countdown overlays in the buffer."
+  (interactive)
+  (mapc #'delete-overlay org-countdown--overlays)
+  (setq org-countdown--overlays nil))
 
 (provide 'org-countdown)
 
