@@ -34,9 +34,15 @@
 
 (defvar-local org-countdown--overlays nil)
 
+(defun org-countdown--follow (_path _prefix)
+  "Handle following a `countdown:' link."
+  (org-countdown--style-link (org-element-context)))
+
 (defun org-countdown--register ()
   "Register `countdown:' link type with Org Mode."
-  (org-link-set-parameters "countdown"))
+  (org-link-set-parameters
+   "countdown"
+   :follow #'org-countdown--follow))
 
 (defun org-countdown--style-link (link)
   "If applicable, add an overlay to the link element LINK."
