@@ -33,6 +33,14 @@
 (require 'org-element)
 (require 'ts)
 
+(defgroup org-countdown nil
+  "Countdown timers in Org Mode."
+  :group 'org-time)
+
+(defface org-countdown-overlay '((default :inherit (org-date default)
+                                          :height 0.9))
+  "Face for `org-countdown' countdown text.")
+
 (defvar-local org-countdown--overlays nil
   "List of `org-countdown' overlays in current buffer.")
 
@@ -70,7 +78,7 @@
               (timestamp (ts-parse target))
               (text (org-countdown--format-duration timestamp)))
     (overlay-put ov 'display text)
-    (overlay-put ov 'face '(org-date default))
+    (overlay-put ov 'face 'org-countdown-overlay)
     (push (cons timestamp ov) org-countdown--overlays)))
 
 (defun org-countdown--update-overlays ()
