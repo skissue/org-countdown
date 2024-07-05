@@ -48,15 +48,17 @@ Takes a single argument, the target timestamp, as a `ts' timestamp
 struct. Should return a string to display."
   :type 'function)
 
-(defvar-local org-countdown--overlays nil
-  "List of `org-countdown' overlays in current buffer.")
+;; We make this variable global so that we only need one timer
+(defvar org-countdown--overlays nil
+  "List of all `org-countdown' overlays.")
 
-(defvar-local org-countdown--timer nil
-  "Timer that updates the current buffer's `org-countdown' overlays.")
+(defvar org-countdown--timer nil
+  "Timer that updates `org-countdown' overlays.")
 
 (defun org-countdown--follow (_path _prefix)
   "Handle following a `countdown:' link."
-  (org-countdown--style-link (org-element-context)))
+  (org-countdown--style-link (org-element-context))
+  (org-countdown--start-timer-maybe))
 
 (defun org-countdown--complete (&optional _arg)
   "Complete a `countdown:' link using `org-read-date'."
@@ -86,8 +88,9 @@ struct. Should return a string to display."
   (when-let ((ov (cl-find-if (lambda (ov)
                                (member ov org-countdown--overlays))
                              (overlays-at (point)))))
+    (setq org-countdown--overlays (delete ov org-countdown--overlays))
     (delete-overlay ov)
-    (setq org-countdown--overlays (delete ov org-countdown--overlays))))
+    (org-countdown--cancel-timer-maybe)))
 
 (defvar org-countdown-overlay-map
   (let ((map (make-sparse-keymap)))
@@ -112,12 +115,40 @@ struct. Should return a string to display."
     (push ov org-countdown--overlays)))
 
 (defun org-countdown--update-overlays ()
-  "Update overlays in the current buffer."
+  "Update all `org-countdown' overlays."
+  ;; Remove overlays in killed buffers
+  (setq org-countdown--overlays
+        (seq-filter #'overlay-buffer org-countdown--overlays))
   (cl-loop for ov in org-countdown--overlays
            for timestamp = (overlay-get ov 'timestamp)
            for text = (org-countdown--format-duration timestamp)
            do
-           (overlay-put ov 'display text)))
+           (overlay-put ov 'display text))
+  (org-countdown--cancel-timer-maybe))
+
+(defun org-countdown--pull-from-buffer (buf)
+  "Remove all overlays in BUF from `org-countdown--overlays' and return them."
+  (let (filtered removed)
+    (cl-loop for ov in org-countdown--overlays
+             if (eq (overlay-buffer ov) buf) do
+             (push ov removed)
+             else do
+             (push ov filtered))
+    (setq org-countdown--overlays filtered)
+    removed))
+
+(defun org-countdown--start-timer-maybe ()
+  "Start timer and store timer in `org-countdown--timer' if needed."
+  (unless org-countdown--timer
+    (setq org-countdown--timer
+          (run-with-timer 60 60 #'org-countdown--update-overlays))))
+
+(defun org-countdown--cancel-timer-maybe ()
+  "Cancel `org-countdown--timer' if there are no overlays left."
+  (when (and org-countdown--timer
+             (not org-countdown--overlays))
+    (cancel-timer org-countdown--timer)
+    (setq org-countdown--timer nil)))
 
 ;;;###autoload
 (defun org-countdown-enable ()
@@ -126,18 +157,14 @@ struct. Should return a string to display."
   (org-countdown--register)
   (org-countdown-clear)
   (org-element-map (org-element-parse-buffer) 'link
-    #'org-countdown--style-link)
-  (setq org-countdown--timer
-        (run-with-timer 60 60 #'org-countdown--update-overlays)))
+    #'org-countdown--style-link))
 
 (defun org-countdown-clear ()
   "Clear all countdown overlays in the buffer."
   (interactive)
-  (mapc #'delete-overlay org-countdown--overlays)
-  (when org-countdown--timer
-    (cancel-timer org-countdown--timer))
-  (setq org-countdown--overlays nil
-        org-countdown--timer nil))
+  (mapc #'delete-overlay
+        (org-countdown--pull-from-buffer (current-buffer)))
+  (org-countdown--cancel-timer-maybe))
 
 (provide 'org-countdown)
 
