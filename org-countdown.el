@@ -30,6 +30,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'org)
 (require 'org-element)
 (require 'ts)
 
@@ -57,11 +58,17 @@ struct. Should return a string to display."
   "Handle following a `countdown:' link."
   (org-countdown--style-link (org-element-context)))
 
+(defun org-countdown--complete (&optional _arg)
+  "Complete a `countdown:' link using `org-read-date'."
+  (let ((timestamp (org-read-date)))
+    (concat "countdown:" timestamp)))
+
 (defun org-countdown--register ()
   "Register `countdown:' link type with Org Mode."
   (org-link-set-parameters
    "countdown"
-   :follow #'org-countdown--follow))
+   :follow #'org-countdown--follow
+   :complete #'org-countdown--complete))
 
 (defun org-countdown--format-duration (timestamp)
   "Format duration until TIMESTAMP for display as a string."
