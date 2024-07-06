@@ -42,11 +42,26 @@
                                           :height 0.9))
   "Face for `org-countdown' countdown text.")
 
+(defcustom org-countdown-elapsed-behavior 'zeros
+  "How to show elapsed countdowns.
+
+Valid choices:
+- `zeros': show all zeros for the duration
+- `none': do not style elapsed durations
+- `negative': show the duration since the timestamp as a negative value
+
+Note that this has no effect if not using the default
+`org-countdown-format-duration-function'!"
+  :type '(choice (const zeros)
+                 (const none)
+                 (const negative)))
+
 (defcustom org-countdown-format-duration-function #'org-countdown--format-duration
   "Function to use to format the duration left until a timestamp.
 Takes a single argument, the target timestamp, as a `ts' timestamp
 struct. Should return a string to display."
   :type 'function)
+
 
 ;; We make this variable global so that we only need one timer
 (defvar org-countdown--overlays nil
@@ -74,13 +89,20 @@ struct. Should return a string to display."
 
 (defun org-countdown--format-duration (timestamp)
   "Format duration until TIMESTAMP for display as a string."
-  (cl-destructuring-bind
-      (&key years days hours minutes &allow-other-keys)
-      (ts-human-duration (ts-diff timestamp
-                                  (ts-now)))
-    (format "⏳ %dd %dh %dm"
-            (+ (* 365 years) days)
-            hours minutes)))
+  (let* ((diff (ts-diff timestamp (ts-now)))
+         (text (cl-destructuring-bind
+                   (&key years days hours minutes &allow-other-keys)
+                   (ts-human-duration diff)
+                 (format "⏳ %dd %dh %dm"
+                         (+ (* 365 years) days)
+                         hours minutes))))
+    (if (> diff 0)
+        text
+      (cl-case org-countdown-elapsed-behavior
+        (zeros "⏳ 0d 0h 0m")
+        (none nil)
+        (negative text)
+        (t (user-error "Invalid value for `org-countdown-elapsed-behavior'"))))))
 
 (defun org-countdown-remove-at-point ()
   "Remove countdown overlay at point."
@@ -122,8 +144,14 @@ struct. Should return a string to display."
   (cl-loop for ov in org-countdown--overlays
            for timestamp = (overlay-get ov 'timestamp)
            for text = (org-countdown--format-duration timestamp)
-           do
-           (overlay-put ov 'display text))
+           ;; We have to account for the possibility that `text' is nil because
+           ;; the countdown has elapsed and `org-countdown-elapsed-behavior' is
+           ;; `none'
+           when text do
+           (overlay-put ov 'display text)
+           else do
+           (delete-overlay ov)
+           (setq org-countdown--overlays (delete ov org-countdown--overlays)))
   (org-countdown--cancel-timer-maybe))
 
 (defun org-countdown--pull-from-buffer (buf)
