@@ -42,8 +42,8 @@
                                           :height 0.9))
   "Face for `org-countdown' countdown text.")
 
-(defcustom org-countdown-elapsed-behavior 'zeros
-  "How to show elapsed countdowns.
+(defcustom org-countdown-link-elapsed-behavior 'zeros
+  "How to show elapsed countdowns for links.
 
 Valid choices:
 - `zeros': show all zeros for the duration
@@ -98,11 +98,11 @@ struct. Should return a string to display."
                          hours minutes))))
     (if (> diff 0)
         text
-      (cl-case org-countdown-elapsed-behavior
+      (cl-case org-countdown-link-elapsed-behavior
         (zeros "⏳ 0d 0h 0m")
         (none nil)
         (negative text)
-        (t (user-error "Invalid value for `org-countdown-elapsed-behavior'"))))))
+        (t (user-error "Invalid value for `org-countdown-link-elapsed-behavior'"))))))
 
 (defun org-countdown-remove-at-point ()
   "Remove countdown overlay at point."
@@ -145,7 +145,7 @@ struct. Should return a string to display."
            for timestamp = (overlay-get ov 'timestamp)
            for text = (org-countdown--format-duration timestamp)
            ;; We have to account for the possibility that `text' is nil because
-           ;; the countdown has elapsed and `org-countdown-elapsed-behavior' is
+           ;; the countdown has elapsed and `org-countdown-link-elapsed-behavior' is
            ;; `none'
            when text do
            (overlay-put ov 'display text)
