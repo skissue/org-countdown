@@ -136,13 +136,38 @@ struct. Should return a string to display."
               (begin (org-element-begin link))
               (end (org-element-end link))
               (ov (make-overlay begin end))
-              (timestamp (ts-parse target))
-              (text (funcall org-countdown-format-duration-function timestamp)))
-    (overlay-put ov 'display text)
+              (ts (ts-parse target)))
+    (overlay-put ov 'display (funcall org-countdown-format-duration-function ts))
     (overlay-put ov 'face 'org-countdown-overlay)
     (overlay-put ov 'keymap org-countdown-overlay-map)
-    (overlay-put ov 'timestamp timestamp)
+    (overlay-put ov 'timestamp ts)
     (push ov org-countdown--overlays)))
+
+(defun org-countdown--style-timestamp (timestamp)
+  "Add an overlay to the timestamp element TIMESTAMP."
+  (let* ((beg (org-element-begin timestamp))
+         ;; We want the text to appear before the closing bracket.
+         (end (1- (org-element-end timestamp)))
+         (ov (make-overlay beg end))
+         (ts (ts-parse-org-element timestamp))
+         (text (funcall org-countdown-format-duration-function ts)))
+    (overlay-put ov 'after-string
+                 ;; Add a space so the text isn't jammed against the timestamp
+                 (concat " " (propertize text 'face 'org-countdown-overlay)))
+    (overlay-put ov 'keymap org-countdown-overlay-map)
+    (overlay-put ov 'timestamp ts)
+    (push ov org-countdown--overlays)))
+
+(defun org-countdown--style-planning (planning)
+  "Add appropriate overlays to planning element PLANNING.
+Which elements overlays are added to is controlled by
+`org-countdown-style-timestamp-types'."
+  (when-let* (((memq 'deadline org-countdown-style-timestamp-types))
+              (deadline (org-element-property :deadline planning)))
+    (org-countdown--style-timestamp deadline))
+  (when-let* (((memq 'scheduled org-countdown-style-timestamp-types))
+              (scheduled (org-element-property :scheduled planning)))
+    (org-countdown--style-timestamp scheduled)))
 
 (defun org-countdown--update-overlays ()
   "Update all `org-countdown' overlays."
@@ -175,13 +200,26 @@ struct. Should return a string to display."
     (setq org-countdown--timer nil)))
 
 ;;;###autoload
-(defun org-countdown-enable ()
+(defun org-countdown-style-links ()
   "Style all `countdown:' links in the buffer."
   (interactive)
   (org-countdown--register)
   (org-countdown-clear)
   (org-element-map (org-element-parse-buffer) 'link
     #'org-countdown--style-link))
+
+;;;###autoload
+(defun org-countdown-style-timestamps ()
+  "Style all timestamps in the buffer.
+Which timestamps are styled is controlled by
+`org-countdown-style-timestamp-types'."
+  (interactive)
+  (org-countdown-clear)
+  (org-element-map (org-element-parse-buffer) 'planning
+    #'org-countdown--style-planning)
+  (when (memq 'active org-countdown-style-timestamp-types)
+    (org-element-map (org-element-parse-buffer) 'timestamp
+      #'org-countdown--style-timestamp)))
 
 (defun org-countdown-clear ()
   "Clear all countdown overlays in the buffer."
