@@ -56,12 +56,21 @@ Note that this has no effect if not using the default
                  (const none)
                  (const negative)))
 
+(defcustom org-countdown-style-timestamp-types '(deadline)
+  "List of timestamp types to add countdowns to.
+Valid values are:
+- `deadline': add countdowns to DEADLINE cookies.
+- `scheduled': add countdowns to SCHEDULED cookies.
+- `active': add countdowns to all active timestamps."
+  :type '(repeat (choice (const deadline)
+                         (const scheduled)
+                         (const active))))
+
 (defcustom org-countdown-format-duration-function #'org-countdown--format-duration
   "Function to use to format the duration left until a timestamp.
 Takes a single argument, the target timestamp, as a `ts' timestamp
 struct. Should return a string to display."
   :type 'function)
-
 
 ;; We make this variable global so that we only need one timer
 (defvar org-countdown--overlays nil
