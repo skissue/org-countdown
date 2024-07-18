@@ -141,6 +141,7 @@ struct. Should return a string to display."
     (overlay-put ov 'face 'org-countdown-overlay)
     (overlay-put ov 'keymap org-countdown-overlay-map)
     (overlay-put ov 'timestamp ts)
+    (overlay-put ov 'countdown-type 'link)
     (push ov org-countdown--overlays)))
 
 (defun org-countdown--style-timestamp (timestamp)
@@ -156,6 +157,7 @@ struct. Should return a string to display."
                  (concat " " (propertize text 'face 'org-countdown-overlay)))
     (overlay-put ov 'keymap org-countdown-overlay-map)
     (overlay-put ov 'timestamp ts)
+    (overlay-put ov 'countdown-type 'timestamp)
     (push ov org-countdown--overlays)))
 
 (defun org-countdown--style-planning (planning)
@@ -204,7 +206,7 @@ Which elements overlays are added to is controlled by
   "Style all `countdown:' links in the buffer."
   (interactive)
   (org-countdown--register)
-  (org-countdown-clear)
+  (org-countdown-clear-links)
   (org-element-map (org-element-parse-buffer) 'link
     #'org-countdown--style-link))
 
@@ -214,19 +216,36 @@ Which elements overlays are added to is controlled by
 Which timestamps are styled is controlled by
 `org-countdown-style-timestamp-types'."
   (interactive)
-  (org-countdown-clear)
+  (org-countdown-clear-timestamps)
   (org-element-map (org-element-parse-buffer) 'planning
     #'org-countdown--style-planning)
   (when (memq 'active org-countdown-style-timestamp-types)
     (org-element-map (org-element-parse-buffer) 'timestamp
       #'org-countdown--style-timestamp)))
 
-(defun org-countdown-clear ()
-  "Clear all countdown overlays in the buffer."
+(defun org-countdown-clear-links ()
+  "Clear all countdown overlays on links in the current buffer."
   (interactive)
   ;; List will get cleaned up in timer
   (dolist (ov org-countdown--overlays)
-    (when (eq (overlay-buffer ov) (current-buffer))
+    (when (and (eq (overlay-buffer ov) (current-buffer))
+               (eq (overlay-get ov 'countdown-type) 'link))
+      (delete-overlay ov))))
+
+(defun org-countdown-clear-timestamps ()
+  "Clear all countdown overlays on timestamps in the current buffer."
+  (interactive)
+  ;; List will get cleaned up in timer
+  (dolist (ov org-countdown--overlays)
+    (when (and (eq (overlay-buffer ov) (current-buffer))
+               (eq (overlay-get ov 'countdown-type) 'timestamp))
+      (delete-overlay ov))))
+
+(defun org-countdown-clear-all ()
+  "Clear all countdown overlays in the current buffer."
+  (interactive)
+  (dolist (ov org-countdown--overlays)
+    (when (and (eq (overlay-buffer ov) (current-buffer)))
       (delete-overlay ov))))
 
 (provide 'org-countdown)
